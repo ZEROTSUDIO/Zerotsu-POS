@@ -5,44 +5,74 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ $title ?? 'ZerotsuPOS // Cashier Terminal' }}</title>
+    <title>{{ $title ?? 'ZerotsuPOS // Terminal 01' }}</title>
 
     <!-- Google Fonts for Zerotsudios UI -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 
-    <!-- Zerotsudios UI Core CSS -->
+    <!-- Tailwind CSS (Official Zerotsudios UI Preset) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        paper: '#FFFFFF',
+                        dim: '#F4F1FA',
+                        ink: '#0A090D',
+                        obsidian: '#0A0812',
+                        purple: {
+                            DEFAULT: '#7C3AED',
+                            deep: '#5B1AA0',
+                            mid: '#9333EA',
+                            light: '#C06BF0',
+                            soft: '#DDD6FE',
+                            ink: '#1B0E33'
+                        }
+                    },
+                    fontFamily: {
+                        display: ['Anton', 'sans-serif'],
+                        mono: ['Space Mono', 'monospace'],
+                        body: ['Archivo', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Zerotsudios UI Core Stylesheet -->
     <link rel="stylesheet" href="{{ asset('css/zerotsudios.css') }}">
 
-    <!-- Vite Assets -->
-    @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <!-- Midtrans Snap JS SDK (Loaded conditionally when client key is set) -->
+    @if (!empty(config('midtrans.client_key')))
+        <script 
+            type="text/javascript"
+            src="{{ config('midtrans.snap_js_url') }}"
+            data-client-key="{{ config('midtrans.client_key') }}">
+        </script>
     @endif
-
-    <!-- Midtrans Snap JS SDK (Sandbox / Production) -->
-    <script 
-        type="text/javascript"
-        src="{{ config('midtrans.snap_js_url') }}"
-        data-client-key="{{ config('midtrans.client_key') }}">
-    </script>
 
     @livewireStyles
 
     <style>
-        /* Custom overrides and layout constraints for POS full-screen experience */
+        /* POS Viewport Strict Constraints */
         html, body {
-            height: 100%;
-            overflow: hidden;
+            height: 100vh !important;
+            margin: 0;
+            padding: 0;
+            overflow: hidden !important;
             background-color: #F4F1FA;
             color: #0A090D;
+            font-family: 'Archivo', sans-serif;
         }
 
         .hud-border {
             border-bottom: 2px solid #0A090D;
         }
 
-        /* Keyboard Hotkey Pills */
+        /* Keyboard Hotkey Indicator Pills */
         .hotkey-pill {
             font-family: 'Space Mono', monospace;
             font-size: 10px;
@@ -50,7 +80,7 @@
             padding: 3px 6px;
             background: #140C24;
             color: #DDD6FE;
-            border: 1px solid #38225C;
+            border: 1.5px solid #38225C;
             letter-spacing: 0.05em;
         }
 
@@ -60,7 +90,7 @@
         }
     </style>
 </head>
-<body class="h-full flex flex-col font-body antialiased select-none">
+<body class="h-full flex flex-col font-body antialiased select-none overflow-hidden">
 
     <!-- Print Registration Technical Marks (Architectural Dossier Aesthetic) -->
     <div class="print-mark hidden lg:block" style="top: 8px; left: 8px;">
@@ -83,7 +113,10 @@
                     <img 
                         src="{{ asset('assets/zero-studios-icon.svg') }}" 
                         alt="Zerotsudios Logo" 
-                        class="w-7 h-7 drop-shadow-[0_0_8px_rgba(124,58,237,0.6)] group-hover:rotate-12 transition-transform duration-200"
+                        width="28"
+                        height="28"
+                        style="width: 28px; height: 28px; min-width: 28px; max-width: 28px;"
+                        class="w-7 h-7 flex-shrink-0 drop-shadow-[0_0_8px_rgba(124,58,237,0.6)] group-hover:rotate-12 transition-transform duration-200"
                         onerror="this.style.display='none'"
                     >
                     
@@ -92,7 +125,7 @@
                         <span class="title-bar-tag !text-[9px] !py-0.5 !px-2 leading-none">
                             TERMINAL 01 // CASHIER
                         </span>
-                        <span class="title-bar-main !text-sm !py-1 !px-2.5 leading-none tracking-wide text-white flex items-center gap-1.5">
+                        <span class="title-bar-main !text-sm !py-1 !px-2.5 leading-none tracking-wide text-white flex items-center gap-1.5 font-display">
                             ZEROTSU<span class="text-[#7C3AED]">POS</span>
                         </span>
                     </div>
@@ -192,7 +225,7 @@
     <!-- ══════════════════════════════════════════════════════════
          MAIN POS TERMINAL VIEWPORT (Fills remaining height)
          ══════════════════════════════════════════════════════════ -->
-    <main class="flex-1 overflow-hidden relative flex flex-col">
+    <main class="flex-1 overflow-hidden relative flex flex-col min-h-0">
         {{ $slot }}
     </main>
 
