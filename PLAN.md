@@ -119,12 +119,33 @@ ZerotsuPOS is built to prove real-world software engineering depth beyond simple
 - [x] Expose `POST /api/webhooks/midtrans` endpoint with CSRF exemption in `bootstrap/app.php`.
 
 ### Phase 3: Interactive Cashier POS Screen (IN PROGRESS 🟡)
-- [ ] Livewire POS Terminal component with category navigation and live product search.
-- [ ] Cart management (add, remove, quantity increment, tax, and discount calculation).
-- [ ] Checkout modal with Cash and Midtrans Snap selection.
-- [ ] Client-side Midtrans Snap JS popup trigger (`window.snap.pay(snapToken)`).
-- [ ] Live order polling / auto-refresh when webhook updates status to `PAID`.
-- [ ] Built-in Webhook Simulator button for instant local verification.
+- **Phase 3.1: POS Layout Shell & Cashier HUD (COMPLETED ✅)**
+  - [x] POS master layout (`resources/views/components/layouts/pos.blade.php`) with Zerotsudios UI tokens & Snap.js.
+  - [x] Cashier HUD strip: Live clock, cashier profile, shift badge, telemetry indicators (`Space Mono`).
+  - [x] Route `GET /pos` linked to `PosTerminal` component.
+- **Phase 3.2: Product Grid & Real-Time Filtering Component**
+  - [ ] Category navigation rail / filter pills with high-contrast active state.
+  - [ ] Instant search engine with debounce (`wire:model.live.debounce.250ms`).
+  - [ ] Neobrutalist product cards (`.card-project` / `.card-tilty`) with live stock chips and sold-out states.
+- **Phase 3.3: Reactive Cart & Financial Calculation Engine**
+  - [ ] Cart state management with real-time stock ceiling validation.
+  - [ ] Financial calculator: Subtotal, Tax (PB1/PPN toggle), Discount, Grand Total (`Anton`).
+  - [ ] Clear cart action and empty cart dossier illustration.
+- **Phase 3.4: Checkout Dossier & Cash Payment Flow**
+  - [ ] Neobrutalist checkout modal dossier with customer name & table notes.
+  - [ ] Cash tender chips (`Pas`, `50k`, `100k`, `200k`) and live change calculation.
+  - [ ] Atomic cash settlement via `OrderService` + stock deduction via `InventoryService`.
+- **Phase 3.5: Midtrans Snap Integration & Client-Side Flow**
+  - [ ] Midtrans Snap payment method in checkout modal.
+  - [ ] Event dispatching and `window.snap.pay(snapToken)` integration.
+  - [ ] Callback lifecycle management (`onSuccess`, `onPending`, `onError`, `onClose`).
+- **Phase 3.6: Live Payment Polling & Transaction Receipt Modal**
+  - [ ] Real-time status polling (`wire:poll.2s`) on `PENDING_PAYMENT`.
+  - [ ] Transaction receipt dossier popup with café branding and itemized summary.
+  - [ ] Thermal POS printer stylesheet (`@media print` for 58mm/80mm receipt paper).
+- **Phase 3.7: In-App Webhook Simulator & Developer Testing Toolbar**
+  - [ ] Floating developer toolbar for instant local webhook simulation (Settlement, Expire, Cancel).
+  - [ ] Verification of SHA-512 validation, stock deduction, and duplicate event idempotency.
 
 ### Phase 4: Webhook Tunneling & Real Sandbox Testing
 - [ ] Expose local webhook via ngrok: `ngrok http 80`.

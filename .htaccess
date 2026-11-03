@@ -1,0 +1,14 @@
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+
+    # Block direct access to hidden files like .env
+    RewriteRule ^\.(.*)$ - [F,L]
+
+    # Send Requests To Public Directory
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
