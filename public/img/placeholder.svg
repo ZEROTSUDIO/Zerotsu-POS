@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="100%" height="100%" fill="none">
+    <rect width="800" height="600" fill="#F1F5F9"/>
+    <g transform="translate(340, 240)">
+        <rect width="120" height="90" rx="8" stroke="#94A3B8" stroke-width="4" fill="#E2E8F0"/>
+        <circle cx="40" cy="32" r="12" fill="#94A3B8"/>
+        <path d="M12 78L45 45L75 70L90 55L108 78" stroke="#94A3B8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <text x="400" y="375" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="600" fill="#64748B">Image Placeholder</text>
+</svg>

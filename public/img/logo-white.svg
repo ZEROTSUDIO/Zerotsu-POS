@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60" fill="none">
+    <rect width="44" height="44" x="8" y="8" rx="10" fill="#3B82F6"/>
+    <path d="M22 20L30 38M38 20L30 38M25 32H35" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="36" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="700" fill="#FFFFFF" letter-spacing="-0.5">STARTER<tspan fill="#60A5FA">KIT</tspan></text>
+</svg>

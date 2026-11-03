@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /__link-storage
+
+Sitemap: https://rapacaststone.com/sitemap.xml
