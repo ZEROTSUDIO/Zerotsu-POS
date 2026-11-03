@@ -88,7 +88,7 @@
         @if ($feedbackMessage)
             <div class="mx-4 mt-3 p-2.5 bg-[#FFF2F2] border-2 border-[#0A090D] shadow-[3px_3px_0_#0A090D] flex items-center justify-between text-xs font-mono text-[#0A090D]">
                 <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-[#EF4444]"></span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#EF4444] animate-ping"></span>
                     <span><strong>ALERT:</strong> {{ $feedbackMessage }}</span>
                 </div>
                 <button 
@@ -151,6 +151,7 @@
                             $isOutOfStock = $product->stock <= 0;
                             $isLowStock = $product->isLowStock() && !$isOutOfStock;
                             $tiltAngle = ($loop->iteration % 2 === 0) ? '1.2deg' : '-1.2deg';
+                            $inCartQty = $cart[$product->id]['quantity'] ?? 0;
                         @endphp
 
                         <div 
@@ -158,7 +159,7 @@
                             @if (!$isOutOfStock)
                                 wire:click="addToCart({{ $product->id }})"
                             @endif
-                            class="card-tilty p-3 flex flex-col justify-between select-none
+                            class="card-tilty p-3 flex flex-col justify-between select-none relative
                                 {{ $isOutOfStock 
                                     ? 'opacity-65 grayscale cursor-not-allowed bg-[#E5E5E5]' 
                                     : 'cursor-pointer hover:bg-white bg-white active:translate-y-0 active:shadow-[2px_2px_0_#0A090D]' }}"
@@ -167,6 +168,11 @@
                             @if ($isOutOfStock)
                                 <div class="badge-tape badge-tape-tr !bg-[#FF5C5C] !text-[#0A090D] !text-[9px] !py-0.5 !px-2">
                                     SOLD OUT
+                                </div>
+                            @elseif ($inCartQty > 0)
+                                <!-- In-Cart Quantity Floating Tag -->
+                                <div class="badge-tape badge-tape-tr !bg-[#7C3AED] !text-white !text-[9px] !py-0.5 !px-2 shadow-[2px_2px_0_#0A090D]">
+                                    {{ $inCartQty }} IN CART
                                 </div>
                             @endif
 
@@ -208,7 +214,7 @@
 
                                     <!-- Quick "+ Add" Overlay Hint on Hover -->
                                     @if (!$isOutOfStock)
-                                        <div class="absolute inset-0 bg-[#0A090D] bg-opacity-80 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                                        <div class="absolute inset-0 bg-[#0A090D] bg-opacity-80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                             <span class="badge-lilac !text-[10px] !py-1 !px-2.5">
                                                 + ADD TO ORDER
                                             </span>
@@ -277,24 +283,55 @@
                 </svg>
                 <span class="tracking-widest">ORDER LEDGER</span>
             </div>
-            <span class="badge-lilac !text-[9px] !py-0.5 !px-1.5">
-                {{ count($cart) }} {{ count($cart) === 1 ? 'ITEM' : 'ITEMS' }}
+            <span class="badge-lilac !text-[9px] !py-0.5 !px-2 font-mono">
+                {{ count($cart) }} {{ count($cart) === 1 ? 'ITEM' : 'ITEMS' }} · {{ $this->totalUnits }} PCS
             </span>
         </div>
 
-        <!-- Customer Identity Bar -->
+        <!-- Customer Identity Bar with Quick Edit Toggle -->
         <div class="p-2.5 bg-[#F4F1FA] border-b-2 border-[#0A090D] flex items-center justify-between text-xs font-mono">
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 truncate">
                 <span class="text-[#8C849B]">CUSTOMER:</span>
-                <span class="font-bold text-[#0A090D]">Walk-in Guest</span>
+                <span class="font-bold text-[#0A090D] truncate">{{ $customerName }}</span>
+                @if (strlen($orderNotes) > 0)
+                    <span class="badge-dark !text-[8px] !py-0 !px-1 truncate" title="{{ $orderNotes }}">NOTE</span>
+                @endif
             </div>
-            <button type="button" class="text-[10px] text-[#7C3AED] hover:underline font-bold">
-                [EDIT]
+            <button 
+                type="button" 
+                wire:click="$toggle('showCustomerModal')" 
+                class="text-[10px] text-[#7C3AED] hover:text-[#5B1AA0] font-bold focus:outline-none flex-shrink-0"
+            >
+                {{ $showCustomerModal ? '[CLOSE]' : '[EDIT]' }}
             </button>
         </div>
 
+        <!-- Inline Customer & Table Note Editor Drawer -->
+        @if ($showCustomerModal)
+            <div class="p-3 bg-[#FFFFFF] border-b-2 border-[#0A090D] space-y-2 text-xs font-mono">
+                <div>
+                    <label class="block text-[10px] text-[#8C849B] font-bold mb-1">GUEST NAME / TABLE #:</label>
+                    <input 
+                        type="text" 
+                        wire:model.live.debounce.300ms="customerName"
+                        placeholder="e.g. Meja 04 / Mas Dimas"
+                        class="input-brutal w-full !py-1.5 !px-2 text-xs"
+                    >
+                </div>
+                <div>
+                    <label class="block text-[10px] text-[#8C849B] font-bold mb-1">ORDER NOTES (OPTIONAL):</label>
+                    <input 
+                        type="text" 
+                        wire:model.live.debounce.300ms="orderNotes"
+                        placeholder="e.g. Less sugar, extra ice, takeaway"
+                        class="input-brutal w-full !py-1.5 !px-2 text-xs"
+                    >
+                </div>
+            </div>
+        @endif
+
         <!-- Cart Line Items Area (Scrollable) -->
-        <div class="flex-1 overflow-y-auto p-4 flex flex-col {{ empty($cart) ? 'items-center justify-center text-center' : '' }}">
+        <div class="flex-1 overflow-y-auto p-3 min-h-0 flex flex-col {{ empty($cart) ? 'items-center justify-center text-center' : 'space-y-2' }}">
             @if (empty($cart))
                 <!-- Empty Cart Illustration State -->
                 <div class="w-16 h-16 border-2 border-dashed border-[#8C849B] flex items-center justify-center mb-3 text-[#8C849B]">
@@ -309,84 +346,240 @@
                     Select items from the catalog or press <strong class="text-[#0A090D]">[F2]</strong> to search.
                 </p>
             @else
-                <!-- Active Line Items Preview (Ready for Phase 3.3 Engine) -->
-                <div class="w-full space-y-2">
-                    @foreach ($cart as $item)
-                        <div class="p-2.5 bg-[#F4F1FA] border-1.5 border-[#0A090D] shadow-[2px_2px_0_#0A090D] flex items-center justify-between gap-2">
+                <!-- Active Line Items List -->
+                @foreach ($cart as $item)
+                    <div class="p-2.5 bg-[#F4F1FA] border-1.5 border-[#0A090D] shadow-[2px_2px_0_#0A090D] flex flex-col gap-2">
+                        <!-- Top Row: Name, SKU & Remove Button -->
+                        <div class="flex items-start justify-between gap-2">
                             <div class="flex-1 min-w-0">
-                                <div class="font-display text-xs text-[#0A090D] uppercase truncate">
+                                <h5 class="font-display text-xs text-[#0A090D] uppercase tracking-wide truncate" title="{{ $item['name'] }}">
                                     {{ $item['name'] }}
-                                </div>
-                                <div class="font-mono text-[10px] text-[#7C3AED]">
-                                    {{ $item['quantity'] }}x @ Rp {{ number_format($item['price'], 0, ',', '.') }}
+                                </h5>
+                                <div class="font-mono text-[10px] text-[#7C3AED] font-bold">
+                                    {{ $item['sku'] }} · Rp {{ number_format($item['price'], 0, ',', '.') }}
                                 </div>
                             </div>
+                            
+                            <!-- Trash / Remove Item Button -->
+                            <button 
+                                type="button" 
+                                wire:click="removeFromCart({{ $item['id'] }})"
+                                class="w-5 h-5 flex items-center justify-center text-[#8C849B] hover:text-red-600 hover:bg-red-50 transition-colors focus:outline-none"
+                                title="Hapus item dari keranjang"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="square" stroke-linejoin="miter" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Bottom Row: Stepper (- / +) and Line Total -->
+                        <div class="flex items-center justify-between pt-1 border-t border-[#0A090D]/10">
+                            <!-- Quantity Stepper Controls -->
+                            <div class="flex items-center">
+                                <!-- Decrement Button -->
+                                <button 
+                                    type="button" 
+                                    wire:click="decrementQuantity({{ $item['id'] }})"
+                                    class="w-6 h-6 flex items-center justify-center bg-white border border-[#0A090D] font-mono font-bold text-xs hover:bg-[#7C3AED] hover:text-white transition-colors"
+                                    title="Kurang 1"
+                                >
+                                    @if ($item['quantity'] === 1)
+                                        <svg class="w-3 h-3 text-red-600 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="square" stroke-linejoin="miter" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                        </svg>
+                                    @else
+                                        -
+                                    @endif
+                                </button>
+
+                                <!-- Quantity Pill -->
+                                <span class="font-mono font-bold text-xs px-2.5 py-0.5 bg-white border-y border-[#0A090D] min-w-[28px] text-center select-none">
+                                    {{ $item['quantity'] }}
+                                </span>
+
+                                <!-- Increment Button -->
+                                <button 
+                                    type="button" 
+                                    wire:click="incrementQuantity({{ $item['id'] }})"
+                                    {{ $item['quantity'] >= $item['stock'] ? 'disabled' : '' }}
+                                    class="w-6 h-6 flex items-center justify-center bg-white border border-[#0A090D] font-mono font-bold text-xs 
+                                        {{ $item['quantity'] >= $item['stock'] ? 'opacity-40 cursor-not-allowed bg-gray-200' : 'hover:bg-[#7C3AED] hover:text-white' }} transition-colors"
+                                    title="Tambah 1 (Max: {{ $item['stock'] }})"
+                                >
+                                    +
+                                </button>
+
+                                @if ($item['quantity'] >= $item['stock'])
+                                    <span class="ml-2 text-[9px] font-mono font-bold text-red-600 uppercase">
+                                        MAX
+                                    </span>
+                                @endif
+                            </div>
+
+                            <!-- Line Item Total -->
                             <div class="font-mono text-xs font-bold text-[#0A090D]">
                                 Rp {{ number_format($item['price'] * $item['quantity'], 0, ',', '.') }}
                             </div>
                         </div>
-                    @endforeach
-                </div>
+                    </div>
+                @endforeach
             @endif
         </div>
 
-        <!-- Financial Calculation Summary Dossier -->
-        @php
-            $subtotal = 0;
-            foreach ($cart as $item) {
-                $subtotal += ($item['price'] * $item['quantity']);
-            }
-            $taxAmount = (int) round($subtotal * 0.10); // 10% PB1
-            $grandTotal = $subtotal + $taxAmount;
-        @endphp
-
-        <div class="bg-[#F4F1FA] border-t-2 border-[#0A090D] p-3.5 space-y-2 flex-shrink-0 font-mono text-xs">
+        <!-- ══════════════════════════════════════════════════════════
+             FINANCIAL CALCULATION ENGINE & PRICING DOSSIER
+             ══════════════════════════════════════════════════════════ -->
+        <div class="bg-[#F4F1FA] border-t-2 border-[#0A090D] p-3.5 space-y-2 flex-shrink-0 font-mono text-xs select-none">
+            
+            <!-- Subtotal Line -->
             <div class="flex items-center justify-between text-[#4B4556]">
-                <span>SUBTOTAL</span>
-                <span class="font-bold text-[#0A090D]">Rp {{ number_format($subtotal, 0, ',', '.') }}</span>
+                <span class="font-bold">SUBTOTAL</span>
+                <span class="font-bold text-[#0A090D]">Rp {{ number_format($this->subtotal, 0, ',', '.') }}</span>
             </div>
+
+            <!-- Discount Line with Interactive Presets Toggle -->
             <div class="flex items-center justify-between text-[#4B4556]">
                 <div class="flex items-center gap-1.5">
-                    <span>TAX (PB1 10%)</span>
-                    <span class="badge-white !text-[8px] !py-0 !px-1">ENABLED</span>
+                    <span class="font-bold">DISCOUNT</span>
+                    <button 
+                        type="button" 
+                        wire:click="$toggle('showDiscountOptions')"
+                        class="text-[9px] font-mono font-bold underline text-[#7C3AED] hover:text-[#5B1AA0]"
+                    >
+                        {{ $showDiscountOptions ? '[HIDE]' : ($discountValue > 0 ? '[CHANGE]' : '[+ APPLY]') }}
+                    </button>
                 </div>
-                <span class="font-bold text-[#0A090D]">Rp {{ number_format($taxAmount, 0, ',', '.') }}</span>
-            </div>
-            <div class="flex items-center justify-between text-[#4B4556]">
-                <span>DISCOUNT</span>
-                <span class="font-bold text-[#0A090D]">Rp 0</span>
+                <div class="flex items-center gap-1.5">
+                    @if ($this->discountAmount > 0)
+                        <span class="font-bold text-[#7C3AED]">
+                            - Rp {{ number_format($this->discountAmount, 0, ',', '.') }}
+                        </span>
+                        <button 
+                            type="button" 
+                            wire:click="clearDiscount" 
+                            class="text-red-600 hover:text-red-800 text-[10px] font-bold" 
+                            title="Remove discount"
+                        >
+                            ✕
+                        </button>
+                    @else
+                        <span class="font-bold text-[#0A090D]">Rp 0</span>
+                    @endif
+                </div>
             </div>
 
-            <!-- Grand Total Strip -->
-            <div class="pt-2 border-t border-[#0A090D] flex items-center justify-between">
+            <!-- Expandable Quick Discount Preset Chips -->
+            @if ($showDiscountOptions)
+                <div class="p-2 bg-white border border-[#0A090D] shadow-[2px_2px_0_#0A090D] space-y-1.5">
+                    <div class="text-[9px] font-bold text-[#8C849B]">SELECT DISCOUNT PRESET:</div>
+                    <div class="flex flex-wrap gap-1">
+                        <button 
+                            type="button" 
+                            wire:click="applyDiscount('percent', 5)"
+                            class="badge-dark !text-[9px] !py-0.5 !px-1.5 hover:bg-[#7C3AED]"
+                        >
+                            5%
+                        </button>
+                        <button 
+                            type="button" 
+                            wire:click="applyDiscount('percent', 10)"
+                            class="badge-dark !text-[9px] !py-0.5 !px-1.5 hover:bg-[#7C3AED]"
+                        >
+                            10%
+                        </button>
+                        <button 
+                            type="button" 
+                            wire:click="applyDiscount('percent', 20)"
+                            class="badge-dark !text-[9px] !py-0.5 !px-1.5 hover:bg-[#7C3AED]"
+                        >
+                            20%
+                        </button>
+                        <button 
+                            type="button" 
+                            wire:click="applyDiscount('fixed', 5000)"
+                            class="badge-white !text-[9px] !py-0.5 !px-1.5 hover:bg-[#F4F1FA]"
+                        >
+                            Rp 5K
+                        </button>
+                        <button 
+                            type="button" 
+                            wire:click="applyDiscount('fixed', 10000)"
+                            class="badge-white !text-[9px] !py-0.5 !px-1.5 hover:bg-[#F4F1FA]"
+                        >
+                            Rp 10K
+                        </button>
+                        <button 
+                            type="button" 
+                            wire:click="applyDiscount('fixed', 25000)"
+                            class="badge-white !text-[9px] !py-0.5 !px-1.5 hover:bg-[#F4F1FA]"
+                        >
+                            Rp 25K
+                        </button>
+                        <button 
+                            type="button" 
+                            wire:click="clearDiscount"
+                            class="badge-red !text-[9px] !py-0.5 !px-1.5"
+                        >
+                            NONE
+                        </button>
+                    </div>
+                </div>
+            @endif
+
+            <!-- Tax (PB1 10%) Line with One-Click Toggle -->
+            <div class="flex items-center justify-between text-[#4B4556]">
+                <div class="flex items-center gap-1.5">
+                    <span class="font-bold">TAX (PB1 10%)</span>
+                    <button 
+                        type="button" 
+                        wire:click="toggleTax"
+                        class="{{ $enableTax ? 'badge-lilac !bg-[#7C3AED] !text-white' : 'badge-dark !bg-gray-300 !text-gray-700' }} !text-[8px] !py-0.5 !px-1.5 cursor-pointer font-bold"
+                        title="Klik untuk menyalakan/mematikan pajak 10%"
+                    >
+                        {{ $enableTax ? 'ON' : 'OFF' }}
+                    </button>
+                </div>
+                <span class="font-bold text-[#0A090D]">
+                    Rp {{ number_format($this->taxAmount, 0, ',', '.') }}
+                </span>
+            </div>
+
+            <!-- Grand Total Due Strip (Anton Typography) -->
+            <div class="pt-2 border-t-2 border-[#0A090D] flex items-center justify-between">
                 <div>
                     <span class="text-[10px] font-bold text-[#8C849B] block leading-none">TOTAL DUE</span>
                     <span class="font-mono text-[11px] text-[#7C3AED] font-bold">IDR</span>
                 </div>
                 <div class="font-display text-3xl text-[#0A090D] leading-none tracking-tight">
-                    Rp {{ number_format($grandTotal, 0, ',', '.') }}
+                    Rp {{ number_format($this->grandTotal, 0, ',', '.') }}
                 </div>
             </div>
         </div>
 
-        <!-- Checkout Action Button Bar -->
+        <!-- ══════════════════════════════════════════════════════════
+             CHECKOUT & RESET ACTION BUTTON BAR
+             ══════════════════════════════════════════════════════════ -->
         <div class="p-3 bg-white border-t-2 border-[#0A090D] flex items-center gap-2 flex-shrink-0">
+            <!-- Checkout Action Trigger -->
             <button 
                 type="button"
                 {{ empty($cart) ? 'disabled' : '' }}
                 class="btn-solid flex-1 !py-3 !text-xs {{ empty($cart) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#7C3AED]' }} shadow-[3px_3px_0_#0A090D]"
             >
-                <span>[F4] CHECKOUT</span>
+                <span>[F4] CHECKOUT ({{ count($cart) }})</span>
                 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="square" stroke-linejoin="miter" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
                 </svg>
             </button>
 
+            <!-- Clear Cart Reset Button -->
             <button 
                 type="button" 
                 {{ empty($cart) ? 'disabled' : '' }}
-                wire:click="$set('cart', [])"
-                class="btn-outline !py-3 !px-3 text-xs {{ empty($cart) ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-50' }} border-2 border-[#0A090D]"
+                wire:click="clearCart"
+                wire:confirm="Yakin ingin mengosongkan keranjang belanja?"
+                class="btn-outline !py-3 !px-3 text-xs {{ empty($cart) ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-50 hover:border-red-600' }} border-2 border-[#0A090D]"
                 title="Clear Cart (ESC)"
             >
                 <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

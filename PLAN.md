@@ -127,10 +127,10 @@ ZerotsuPOS is built to prove real-world software engineering depth beyond simple
   - [x] Category navigation rail / filter pills with high-contrast active state.
   - [x] Instant search engine with debounce (`wire:model.live.debounce.250ms`).
   - [x] Neobrutalist product cards (`.card-project` / `.card-tilty`) with live stock chips and sold-out states.
-- **Phase 3.3: Reactive Cart & Financial Calculation Engine**
-  - [ ] Cart state management with real-time stock ceiling validation.
-  - [ ] Financial calculator: Subtotal, Tax (PB1/PPN toggle), Discount, Grand Total (`Anton`).
-  - [ ] Clear cart action and empty cart dossier illustration.
+- **Phase 3.3: Reactive Cart & Financial Calculation Engine (COMPLETED ✅)**
+  - [x] Cart state management with real-time stock ceiling validation.
+  - [x] Financial calculator: Subtotal, Tax (PB1 10% toggleable / enabled by default), Discount, Grand Total (`Anton`).
+  - [x] Line items manager: quantity stepper (+, -), trash removal, and clear cart action.
 - **Phase 3.4: Checkout Dossier & Cash Payment Flow**
   - [ ] Neobrutalist checkout modal dossier with customer name & table notes.
   - [ ] Cash tender chips (`Pas`, `50k`, `100k`, `200k`) and live change calculation.

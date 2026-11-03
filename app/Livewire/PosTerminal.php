@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Category;
 use App\Models\Product;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -19,8 +20,20 @@ class PosTerminal extends Component
     public string $search = '';
     public ?int $selectedCategory = null;
 
-    // Cart State (Wireframe initialized for Phase 3.3 integration)
+    // Phase 3.3 Cart & Financial Engine State
     public array $cart = [];
+    public string $customerName = 'Walk-in Guest';
+    public string $orderNotes = '';
+    
+    // Discount & Tax Settings
+    public string $discountType = 'fixed'; // 'fixed' | 'percent'
+    public int $discountValue = 0;
+    public bool $enableTax = true; // 10% PB1 café tax enabled by default
+    public int $taxRate = 10;
+    
+    // UI Helpers
+    public bool $showDiscountOptions = false;
+    public bool $showCustomerModal = false;
     public ?string $feedbackMessage = null;
 
     public function selectCategory(?int $categoryId = null): void
@@ -33,6 +46,9 @@ class PosTerminal extends Component
         $this->search = '';
     }
 
+    /**
+     * Add product to cart with strict stock validation.
+     */
     public function addToCart(int $productId): void
     {
         $product = Product::find($productId);
@@ -51,7 +67,7 @@ class PosTerminal extends Component
 
         // Prevent adding more than available stock
         if ($currentQty >= $product->stock) {
-            $this->feedbackMessage = "Batas stok tercapai untuk [{$product->name}] (Max: {$product->stock}).";
+            $this->feedbackMessage = "Batas stok maksimal tercapai untuk [{$product->name}] (Max: {$product->stock}).";
             return;
         }
 
@@ -71,6 +87,149 @@ class PosTerminal extends Component
         }
 
         $this->feedbackMessage = null;
+    }
+
+    /**
+     * Increment item quantity with stock boundary check.
+     */
+    public function incrementQuantity(int $productId): void
+    {
+        if (!isset($this->cart[$productId])) {
+            return;
+        }
+
+        $product = Product::find($productId);
+        if (!$product) {
+            return;
+        }
+
+        if ($this->cart[$productId]['quantity'] >= $product->stock) {
+            $this->feedbackMessage = "Stok maksimal untuk [{$product->name}] adalah {$product->stock}.";
+            return;
+        }
+
+        $this->cart[$productId]['quantity']++;
+        $this->feedbackMessage = null;
+    }
+
+    /**
+     * Decrement item quantity or remove if reaching 0.
+     */
+    public function decrementQuantity(int $productId): void
+    {
+        if (!isset($this->cart[$productId])) {
+            return;
+        }
+
+        if ($this->cart[$productId]['quantity'] > 1) {
+            $this->cart[$productId]['quantity']--;
+        } else {
+            $this->removeFromCart($productId);
+        }
+
+        $this->feedbackMessage = null;
+    }
+
+    /**
+     * Remove item entirely from cart.
+     */
+    public function removeFromCart(int $productId): void
+    {
+        unset($this->cart[$productId]);
+        $this->feedbackMessage = null;
+    }
+
+    /**
+     * Clear all cart items and reset discounts.
+     */
+    public function clearCart(): void
+    {
+        $this->cart = [];
+        $this->discountValue = 0;
+        $this->discountType = 'fixed';
+        $this->orderNotes = '';
+        $this->feedbackMessage = null;
+    }
+
+    /**
+     * Toggle PB1 / PPN tax on/off.
+     */
+    public function toggleTax(): void
+    {
+        $this->enableTax = !$this->enableTax;
+    }
+
+    /**
+     * Apply preset or custom discount.
+     */
+    public function applyDiscount(string $type, int $value): void
+    {
+        $this->discountType = in_array($type, ['fixed', 'percent']) ? $type : 'fixed';
+        $this->discountValue = max(0, $value);
+        $this->showDiscountOptions = false;
+    }
+
+    /**
+     * Clear current discount.
+     */
+    public function clearDiscount(): void
+    {
+        $this->discountValue = 0;
+        $this->discountType = 'fixed';
+        $this->showDiscountOptions = false;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // COMPUTED FINANCIAL PROPERTIES
+    // ══════════════════════════════════════════════════════════
+
+    #[Computed]
+    public function subtotal(): int
+    {
+        $subtotal = 0;
+        foreach ($this->cart as $item) {
+            $subtotal += ($item['price'] * $item['quantity']);
+        }
+        return $subtotal;
+    }
+
+    #[Computed]
+    public function discountAmount(): int
+    {
+        $subtotal = $this->subtotal;
+        if ($this->discountType === 'percent') {
+            $percent = min(100, max(0, $this->discountValue));
+            $amount = (int) round($subtotal * ($percent / 100));
+        } else {
+            $amount = $this->discountValue;
+        }
+        return min($subtotal, max(0, $amount));
+    }
+
+    #[Computed]
+    public function taxAmount(): int
+    {
+        if (!$this->enableTax) {
+            return 0;
+        }
+        $taxable = max(0, $this->subtotal - $this->discountAmount);
+        return (int) round($taxable * ($this->taxRate / 100));
+    }
+
+    #[Computed]
+    public function grandTotal(): int
+    {
+        return max(0, $this->subtotal - $this->discountAmount + $this->taxAmount);
+    }
+
+    #[Computed]
+    public function totalUnits(): int
+    {
+        $units = 0;
+        foreach ($this->cart as $item) {
+            $units += $item['quantity'];
+        }
+        return $units;
     }
 
     public function render()
