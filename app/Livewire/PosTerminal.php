@@ -2,10 +2,13 @@
 
 namespace App\Livewire;
 
+use App\Enums\PaymentMethod;
 use App\Models\Category;
 use App\Models\Product;
+use App\Services\OrderService;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -31,7 +34,15 @@ class PosTerminal extends Component
     public bool $enableTax = true; // 10% PB1 café tax enabled by default
     public int $taxRate = 10;
     
-    // UI Helpers
+    // Phase 3.4 Checkout Dossier State
+    public bool $showCheckoutModal = false;
+    public string $selectedPaymentMethod = 'cash'; // 'cash' | 'midtrans_snap'
+    public int $cashTendered = 0;
+    public bool $showReceiptModal = false;
+    public ?int $lastCompletedOrderId = null;
+    public array $lastReceiptData = [];
+
+    // UI Drawer Helpers
     public bool $showDiscountOptions = false;
     public bool $showCustomerModal = false;
     public ?string $feedbackMessage = null;
@@ -180,6 +191,111 @@ class PosTerminal extends Component
     }
 
     // ══════════════════════════════════════════════════════════
+    // PHASE 3.4 CHECKOUT & CASH RECONCILIATION METHODS
+    // ══════════════════════════════════════════════════════════
+
+    #[On('trigger-checkout')]
+    public function openCheckoutModal(): void
+    {
+        if (empty($this->cart)) {
+            $this->feedbackMessage = 'Keranjang kosong. Pilih item menu terlebih dahulu!';
+            return;
+        }
+
+        $this->selectedPaymentMethod = 'cash';
+        $this->cashTendered = $this->grandTotal; // default to exact amount due
+        $this->showCheckoutModal = true;
+        $this->feedbackMessage = null;
+    }
+
+    #[On('close-modals')]
+    public function closeCheckoutModal(): void
+    {
+        $this->showCheckoutModal = false;
+        $this->showReceiptModal = false;
+    }
+
+    public function setCashTendered(int $amount): void
+    {
+        $this->cashTendered = max(0, $amount);
+    }
+
+    public function addCashTendered(int $amount): void
+    {
+        $this->cashTendered += max(0, $amount);
+    }
+
+    /**
+     * Atomic Cash Settlement using OrderService + InventoryService.
+     */
+    public function processCashPayment(OrderService $orderService): void
+    {
+        if (empty($this->cart)) {
+            $this->feedbackMessage = 'Keranjang belanja kosong!';
+            return;
+        }
+
+        if ($this->cashTendered < $this->grandTotal) {
+            $this->feedbackMessage = 'Nominal uang tunai kurang dari total tagihan!';
+            return;
+        }
+
+        $cartItems = [];
+        foreach ($this->cart as $item) {
+            $cartItems[] = [
+                'product_id' => (int) $item['id'],
+                'quantity' => (int) $item['quantity'],
+            ];
+        }
+
+        try {
+            $order = $orderService->createOrder(
+                cartItems: $cartItems,
+                method: PaymentMethod::CASH,
+                customerName: $this->customerName ?: 'Walk-in Guest',
+                cashierId: auth()->id(),
+                discountAmount: $this->discountAmount,
+                taxAmount: $this->taxAmount,
+                notes: $this->orderNotes
+            );
+
+            // Store snapshot for Receipt Modal Dossier
+            $this->lastReceiptData = [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'customer_name' => $order->customer_name,
+                'created_at' => $order->created_at->format('d M Y · H:i') . ' WIB',
+                'items' => collect($this->cart)->values()->toArray(),
+                'subtotal' => $order->subtotal,
+                'discount_amount' => $order->discount_amount,
+                'tax_amount' => $order->tax_amount,
+                'total_amount' => $order->total_amount,
+                'cash_tendered' => $this->cashTendered,
+                'change_amount' => max(0, $this->cashTendered - $order->total_amount),
+                'payment_method' => 'TUNAI (CASH)',
+                'cashier_name' => auth()->user()->name ?? 'Zerotsu Cashier',
+            ];
+
+            $this->lastCompletedOrderId = $order->id;
+
+            // Reset cart state
+            $this->clearCart();
+            $this->showCheckoutModal = false;
+            $this->showReceiptModal = true;
+            $this->feedbackMessage = null;
+
+        } catch (\Throwable $e) {
+            $this->feedbackMessage = 'Gagal memproses pembayaran: ' . $e->getMessage();
+        }
+    }
+
+    public function closeReceiptModal(): void
+    {
+        $this->showReceiptModal = false;
+        $this->lastReceiptData = [];
+    }
+
+    // ══════════════════════════════════════════════════════════
     // COMPUTED FINANCIAL PROPERTIES
     // ══════════════════════════════════════════════════════════
 
@@ -230,6 +346,18 @@ class PosTerminal extends Component
             $units += $item['quantity'];
         }
         return $units;
+    }
+
+    #[Computed]
+    public function changeAmount(): int
+    {
+        return max(0, $this->cashTendered - $this->grandTotal);
+    }
+
+    #[Computed]
+    public function isCashSufficient(): bool
+    {
+        return $this->cashTendered >= $this->grandTotal;
     }
 
     public function render()

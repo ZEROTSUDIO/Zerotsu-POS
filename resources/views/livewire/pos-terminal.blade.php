@@ -561,11 +561,12 @@
              CHECKOUT & RESET ACTION BUTTON BAR
              ══════════════════════════════════════════════════════════ -->
         <div class="p-3 bg-white border-t-2 border-[#0A090D] flex items-center gap-2 flex-shrink-0">
-            <!-- Checkout Action Trigger -->
+            <!-- Checkout Action Trigger (F4 Hotkey) -->
             <button 
                 type="button"
                 {{ empty($cart) ? 'disabled' : '' }}
-                class="btn-solid flex-1 !py-3 !text-xs {{ empty($cart) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#7C3AED]' }} shadow-[3px_3px_0_#0A090D]"
+                wire:click="openCheckoutModal"
+                class="btn-solid flex-1 !py-3 !text-xs {{ empty($cart) ? 'opacity-50 cursor-not-allowed' : 'hover:!bg-[#7C3AED]' }} shadow-[3px_3px_0_#0A090D]"
             >
                 <span>[F4] CHECKOUT ({{ count($cart) }})</span>
                 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -589,5 +590,418 @@
         </div>
 
     </aside>
+
+
+    <!-- ══════════════════════════════════════════════════════════
+         PHASE 3.4: NEOBRUTALIST CHECKOUT DOSSIER MODAL
+         ══════════════════════════════════════════════════════════ -->
+    @if ($showCheckoutModal)
+        <div class="fixed inset-0 z-50 bg-[#0A090D]/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div 
+                class="w-full max-w-xl bg-white border-2 border-[#0A090D] shadow-[8px_8px_0_#0A090D] overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in duration-150"
+            >
+                <!-- Title Bar Strip -->
+                <div class="title-bar !py-2.5 !px-4 flex-shrink-0">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-[#C06BF0]"></span>
+                        <span>CHECKOUT DOSSIER // ORDER RECONCILIATION</span>
+                    </div>
+                    <button 
+                        type="button" 
+                        wire:click="closeCheckoutModal" 
+                        class="text-white hover:text-[#C06BF0] text-sm font-bold font-mono focus:outline-none"
+                    >
+                        [ESC ✕]
+                    </button>
+                </div>
+
+                <!-- Modal Body (Scrollable) -->
+                <div class="p-4 sm:p-5 overflow-y-auto space-y-4">
+                    
+                    <!-- Order Header Telemetry Grid -->
+                    <div class="p-3.5 bg-[#F4F1FA] border-1.5 border-[#0A090D] flex items-center justify-between gap-3">
+                        <div>
+                            <div class="font-mono text-[10px] text-[#8C849B] font-bold uppercase">CUSTOMER & TABLE:</div>
+                            <div class="font-display text-base text-[#0A090D] tracking-wide">{{ $customerName }}</div>
+                            @if ($orderNotes)
+                                <div class="font-mono text-[10px] text-[#7C3AED]">"{{ $orderNotes }}"</div>
+                            @endif
+                        </div>
+                        <div class="text-right">
+                            <div class="font-mono text-[10px] text-[#8C849B] font-bold uppercase">TOTAL PAYABLE:</div>
+                            <div class="font-display text-2xl sm:text-3xl text-[#7C3AED] leading-none">
+                                Rp {{ number_format($this->grandTotal, 0, ',', '.') }}
+                            </div>
+                            <div class="font-mono text-[9px] text-[#4B4556] mt-0.5">
+                                {{ count($cart) }} Items ({{ $this->totalUnits }} Pcs)
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Method Switcher Tabs -->
+                    <div>
+                        <div class="font-mono text-[10px] text-[#8C849B] font-bold uppercase mb-1.5">
+                            SELECT PAYMENT METHOD:
+                        </div>
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <!-- Tab: Cash (Active) -->
+                            <button 
+                                type="button"
+                                wire:click="$set('selectedPaymentMethod', 'cash')"
+                                class="p-3 border-2 border-[#0A090D] flex items-center gap-2.5 text-left transition-all
+                                    {{ $selectedPaymentMethod === 'cash' 
+                                        ? 'bg-[#0A0812] text-white shadow-[3px_3px_0_#7C3AED]' 
+                                        : 'bg-white text-[#0A090D] hover:bg-[#F4F1FA]' }}"
+                            >
+                                <div class="w-8 h-8 rounded-none bg-[#7C3AED] text-white flex items-center justify-center flex-shrink-0 font-bold font-mono text-sm">
+                                    Rp
+                                </div>
+                                <div>
+                                    <div class="font-display text-sm tracking-wide leading-tight">CASH (TUNAI)</div>
+                                    <div class="font-mono text-[9px] {{ $selectedPaymentMethod === 'cash' ? 'text-[#C06BF0]' : 'text-[#8C849B]' }}">
+                                        Instant Settlement
+                                    </div>
+                                </div>
+                            </button>
+
+                            <!-- Tab: Midtrans Snap (Prepared for Phase 3.5) -->
+                            <button 
+                                type="button"
+                                wire:click="$set('selectedPaymentMethod', 'midtrans_snap')"
+                                class="p-3 border-2 border-[#0A090D] flex items-center gap-2.5 text-left transition-all
+                                    {{ $selectedPaymentMethod === 'midtrans_snap' 
+                                        ? 'bg-[#0A0812] text-white shadow-[3px_3px_0_#7C3AED]' 
+                                        : 'bg-white text-[#0A090D] hover:bg-[#F4F1FA]' }}"
+                            >
+                                <div class="w-8 h-8 rounded-none bg-[#0A090D] text-[#C06BF0] flex items-center justify-center flex-shrink-0 font-bold font-mono text-xs">
+                                    QR
+                                </div>
+                                <div>
+                                    <div class="font-display text-sm tracking-wide leading-tight flex items-center gap-1.5">
+                                        MIDTRANS SNAP
+                                        <span class="badge-lilac !text-[8px] !py-0 !px-1">ONLINE</span>
+                                    </div>
+                                    <div class="font-mono text-[9px] {{ $selectedPaymentMethod === 'midtrans_snap' ? 'text-[#C06BF0]' : 'text-[#8C849B]' }}">
+                                        QRIS / VA / GoPay
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- CASH RECONCILIATION SECTION -->
+                    @if ($selectedPaymentMethod === 'cash')
+                        <div class="space-y-3 pt-1">
+                            <!-- Cash Received Input -->
+                            <div>
+                                <label class="block font-mono text-xs text-[#0A090D] font-bold mb-1">
+                                    CASH TENDERED (UANG DITERIMA):
+                                </label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center font-mono font-bold text-sm text-[#8C849B]">
+                                        Rp
+                                    </span>
+                                    <input 
+                                        type="number"
+                                        wire:model.live.debounce.150ms="cashTendered"
+                                        class="input-brutal w-full !pl-10 !py-2.5 font-mono text-xl font-bold text-[#0A090D] border-2"
+                                        placeholder="0"
+                                        min="0"
+                                        step="1000"
+                                    >
+                                </div>
+                            </div>
+
+                            <!-- Quick Preset Cash Chips -->
+                            <div>
+                                <div class="font-mono text-[10px] text-[#8C849B] font-bold uppercase mb-1">
+                                    QUICK DENOMINATION CHIPS:
+                                </div>
+                                <div class="flex flex-wrap gap-1.5 font-mono">
+                                    <!-- Exact Amount -->
+                                    <button 
+                                        type="button"
+                                        wire:click="setCashTendered({{ $this->grandTotal }})"
+                                        class="px-2.5 py-1 bg-[#7C3AED] hover:bg-[#5B1AA0] text-white text-xs font-bold border border-[#0A090D] shadow-[2px_2px_0_#0A090D] transition-transform active:translate-y-0.5"
+                                    >
+                                        UANG PAS (Rp {{ number_format($this->grandTotal, 0, ',', '.') }})
+                                    </button>
+                                    
+                                    <!-- Standard Notes -->
+                                    <button 
+                                        type="button" 
+                                        wire:click="setCashTendered(50000)"
+                                        class="px-2.5 py-1 bg-white hover:bg-[#F4F1FA] text-[#0A090D] text-xs font-bold border border-[#0A090D] shadow-[2px_2px_0_#0A090D]"
+                                    >
+                                        Rp 50K
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        wire:click="setCashTendered(100000)"
+                                        class="px-2.5 py-1 bg-white hover:bg-[#F4F1FA] text-[#0A090D] text-xs font-bold border border-[#0A090D] shadow-[2px_2px_0_#0A090D]"
+                                    >
+                                        Rp 100K
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        wire:click="setCashTendered(200000)"
+                                        class="px-2.5 py-1 bg-white hover:bg-[#F4F1FA] text-[#0A090D] text-xs font-bold border border-[#0A090D] shadow-[2px_2px_0_#0A090D]"
+                                    >
+                                        Rp 200K
+                                    </button>
+                                    
+                                    <!-- Additive Quick Chips -->
+                                    <button 
+                                        type="button" 
+                                        wire:click="addCashTendered(10000)"
+                                        class="px-2 py-1 bg-[#F4F1FA] hover:bg-white text-[#7C3AED] text-xs font-bold border border-[#0A090D] shadow-[1px_1px_0_#0A090D]"
+                                    >
+                                        +10K
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        wire:click="addCashTendered(20000)"
+                                        class="px-2 py-1 bg-[#F4F1FA] hover:bg-white text-[#7C3AED] text-xs font-bold border border-[#0A090D] shadow-[1px_1px_0_#0A090D]"
+                                    >
+                                        +20K
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        wire:click="addCashTendered(50000)"
+                                        class="px-2 py-1 bg-[#F4F1FA] hover:bg-white text-[#7C3AED] text-xs font-bold border border-[#0A090D] shadow-[1px_1px_0_#0A090D]"
+                                    >
+                                        +50K
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Live Change (Kembalian) Calculation Box -->
+                            <div class="p-3.5 border-2 border-[#0A090D] shadow-[3px_3px_0_#0A090D] 
+                                {{ $this->isCashSufficient ? 'bg-[#F4F1FA]' : 'bg-[#FFF2F2]' }}"
+                            >
+                                @if (!$this->isCashSufficient)
+                                    <div class="flex items-center justify-between text-red-600 font-mono">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse"></span>
+                                            <span class="font-bold text-xs">UANG KURANG (DEFICIT):</span>
+                                        </div>
+                                        <div class="font-display text-2xl text-red-600">
+                                            - Rp {{ number_format($this->grandTotal - $this->cashTendered, 0, ',', '.') }}
+                                        </div>
+                                    </div>
+                                @else
+                                    <div class="flex items-center justify-between font-mono">
+                                        <div>
+                                            <span class="text-[10px] text-[#8C849B] font-bold block uppercase">CHANGE DUE (KEMBALIAN):</span>
+                                            <span class="badge-lilac !text-[9px] !py-0.5 !px-2 mt-0.5">READY TO RETURN</span>
+                                        </div>
+                                        <div class="font-display text-3xl sm:text-4xl text-[#0A090D] tracking-tight">
+                                            Rp {{ number_format($this->changeAmount, 0, ',', '.') }}
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @else
+                        <!-- MIDTRANS SNAP INFO BOX -->
+                        <div class="p-4 bg-[#F4F1FA] border-2 border-[#0A090D] space-y-2 font-mono text-xs text-[#0A090D]">
+                            <div class="flex items-center gap-2 font-bold text-[#7C3AED]">
+                                <span class="w-2 h-2 rounded-full bg-[#7C3AED]"></span>
+                                <span>MIDTRANS SNAP INTEGRATION (PHASE 3.5)</span>
+                            </div>
+                            <p class="text-[11px] text-[#4B4556]">
+                                Payment will launch a client-side Midtrans Snap popup supporting dynamic QRIS, GoPay, and Virtual Accounts.
+                            </p>
+                        </div>
+                    @endif
+
+                </div>
+
+                <!-- Modal Action Footer Bar -->
+                <div class="p-3 sm:p-4 bg-[#F4F1FA] border-t-2 border-[#0A090D] flex items-center justify-between gap-3 flex-shrink-0">
+                    <button 
+                        type="button" 
+                        wire:click="closeCheckoutModal"
+                        class="btn-outline !py-2.5 !px-4 text-xs font-mono font-bold"
+                    >
+                        [ESC] BATAL
+                    </button>
+
+                    @if ($selectedPaymentMethod === 'cash')
+                        <button 
+                            type="button"
+                            wire:click="processCashPayment"
+                            {{ !$this->isCashSufficient ? 'disabled' : '' }}
+                            class="btn-solid !py-2.5 !px-5 text-xs font-mono font-bold 
+                                {{ !$this->isCashSufficient 
+                                    ? 'opacity-40 cursor-not-allowed bg-gray-400' 
+                                    : '!bg-[#7C3AED] hover:!bg-[#5B1AA0] text-white shadow-[4px_4px_0_#0A090D]' }}"
+                        >
+                            <span>SELESAIKAN TRANSAKSI TUNAI</span>
+                            <svg class="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="square" stroke-linejoin="miter" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                        </button>
+                    @else
+                        <button 
+                            type="button"
+                            disabled
+                            class="btn-solid !py-2.5 !px-5 text-xs font-mono font-bold opacity-50 cursor-not-allowed shadow-[4px_4px_0_#0A090D]"
+                        >
+                            <span>TRIGGER MIDTRANS SNAP (PHASE 3.5)</span>
+                        </button>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
+
+
+    <!-- ══════════════════════════════════════════════════════════
+         PHASE 3.4 / 3.6: TRANSACTION RECEIPT DOSSIER MODAL
+         ══════════════════════════════════════════════════════════ -->
+    @if ($showReceiptModal && !empty($lastReceiptData))
+        <div class="fixed inset-0 z-50 bg-[#0A090D]/85 backdrop-blur-sm flex items-center justify-center p-4">
+            <div 
+                class="w-full max-w-sm bg-white border-2 border-[#0A090D] shadow-[8px_8px_0_#0A090D] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+            >
+                <!-- Title Bar -->
+                <div class="title-bar !py-2 !px-3.5 flex-shrink-0">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
+                        <span>RECEIPT // TRANSACTION SETTLED</span>
+                    </div>
+                    <button 
+                        type="button" 
+                        wire:click="closeReceiptModal" 
+                        class="text-white hover:text-[#C06BF0] text-xs font-mono font-bold"
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                <!-- Printable Receipt Body -->
+                <div id="pos-printable-receipt" class="p-5 font-mono text-xs text-[#0A090D] space-y-3 bg-white">
+                    <!-- Café Header -->
+                    <div class="text-center pb-3 border-b-2 border-dashed border-[#0A090D]">
+                        <h3 class="font-display text-xl tracking-wider uppercase text-[#0A090D]">
+                            ZEROTSU CAFÉ
+                        </h3>
+                        <p class="text-[10px] text-[#8C849B] mt-0.5">
+                            Specialty Coffee & Neobrutalist Eatery
+                        </p>
+                        <div class="text-[9px] text-[#4B4556] mt-1">
+                            Jl. Studio Zero No. 01 · Jakarta
+                        </div>
+                    </div>
+
+                    <!-- Receipt Metadata -->
+                    <div class="space-y-0.5 text-[10px] pb-2 border-b border-[#0A090D]/20">
+                        <div class="flex justify-between">
+                            <span class="text-[#8C849B]">ORDER #:</span>
+                            <span class="font-bold text-[#0A090D]">{{ $lastReceiptData['order_number'] }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-[#8C849B]">DATE:</span>
+                            <span>{{ $lastReceiptData['created_at'] }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-[#8C849B]">CASHIER:</span>
+                            <span>{{ $lastReceiptData['cashier_name'] }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-[#8C849B]">CUSTOMER:</span>
+                            <span class="font-bold">{{ $lastReceiptData['customer_name'] }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Itemized List -->
+                    <div class="space-y-1.5 py-1 text-[11px] border-b border-[#0A090D]/20">
+                        @foreach ($lastReceiptData['items'] as $it)
+                            <div>
+                                <div class="font-bold uppercase truncate">{{ $it['name'] }}</div>
+                                <div class="flex justify-between text-[10px] text-[#4B4556]">
+                                    <span>{{ $it['quantity'] }} x Rp {{ number_format($it['price'], 0, ',', '.') }}</span>
+                                    <span class="font-bold text-[#0A090D]">
+                                        Rp {{ number_format($it['price'] * $it['quantity'], 0, ',', '.') }}
+                                    </span>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <!-- Pricing Breakdown -->
+                    <div class="space-y-1 text-xs pt-1 border-b-2 border-dashed border-[#0A090D] pb-3">
+                        <div class="flex justify-between text-[#4B4556]">
+                            <span>SUBTOTAL:</span>
+                            <span>Rp {{ number_format($lastReceiptData['subtotal'], 0, ',', '.') }}</span>
+                        </div>
+                        @if ($lastReceiptData['discount_amount'] > 0)
+                            <div class="flex justify-between text-[#7C3AED]">
+                                <span>DISCOUNT:</span>
+                                <span>- Rp {{ number_format($lastReceiptData['discount_amount'], 0, ',', '.') }}</span>
+                            </div>
+                        @endif
+                        @if ($lastReceiptData['tax_amount'] > 0)
+                            <div class="flex justify-between text-[#4B4556]">
+                                <span>TAX (PB1 10%):</span>
+                                <span>Rp {{ number_format($lastReceiptData['tax_amount'], 0, ',', '.') }}</span>
+                            </div>
+                        @endif
+                        <div class="flex justify-between font-bold text-sm text-[#0A090D] pt-1 border-t border-[#0A090D]/20">
+                            <span>TOTAL DUE:</span>
+                            <span class="font-display text-lg">Rp {{ number_format($lastReceiptData['total_amount'], 0, ',', '.') }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Payment & Change Due Strip -->
+                    <div class="space-y-1 text-xs pt-1">
+                        <div class="flex justify-between text-[#4B4556]">
+                            <span>METHOD:</span>
+                            <span class="font-bold uppercase">{{ $lastReceiptData['payment_method'] }}</span>
+                        </div>
+                        <div class="flex justify-between text-[#4B4556]">
+                            <span>CASH TENDERED:</span>
+                            <span class="font-bold text-[#0A090D]">Rp {{ number_format($lastReceiptData['cash_tendered'], 0, ',', '.') }}</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm font-bold bg-[#F4F1FA] p-2 border border-[#0A090D]">
+                            <span class="text-[#7C3AED]">KEMBALIAN:</span>
+                            <span class="font-display text-lg text-[#0A090D]">
+                                Rp {{ number_format($lastReceiptData['change_amount'], 0, ',', '.') }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Thank You Footer Note -->
+                    <div class="text-center pt-2 text-[9px] text-[#8C849B]">
+                        TERIMA KASIH ATAS KUNJUNGAN ANDA!<br>
+                        POWERED BY ZEROTSUPOS
+                    </div>
+                </div>
+
+                <!-- Receipt Modal Actions -->
+                <div class="p-3 bg-[#F4F1FA] border-t-2 border-[#0A090D] flex items-center justify-between gap-2 flex-shrink-0">
+                    <button 
+                        type="button" 
+                        onclick="window.print()"
+                        class="btn-outline !py-2 !px-3 text-xs font-mono font-bold flex items-center gap-1.5"
+                    >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="square" stroke-linejoin="miter" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                        </svg>
+                        <span>PRINT</span>
+                    </button>
+
+                    <button 
+                        type="button" 
+                        wire:click="closeReceiptModal"
+                        class="btn-solid !py-2 !px-4 text-xs font-mono font-bold !bg-[#7C3AED] hover:!bg-[#5B1AA0] text-white shadow-[2px_2px_0_#0A090D]"
+                    >
+                        <span>TRANSAKSI BARU</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
 
 </div>

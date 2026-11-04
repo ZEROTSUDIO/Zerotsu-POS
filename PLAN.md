@@ -131,10 +131,11 @@ ZerotsuPOS is built to prove real-world software engineering depth beyond simple
   - [x] Cart state management with real-time stock ceiling validation.
   - [x] Financial calculator: Subtotal, Tax (PB1 10% toggleable / enabled by default), Discount, Grand Total (`Anton`).
   - [x] Line items manager: quantity stepper (+, -), trash removal, and clear cart action.
-- **Phase 3.4: Checkout Dossier & Cash Payment Flow**
-  - [ ] Neobrutalist checkout modal dossier with customer name & table notes.
-  - [ ] Cash tender chips (`Pas`, `50k`, `100k`, `200k`) and live change calculation.
-  - [ ] Atomic cash settlement via `OrderService` + stock deduction via `InventoryService`.
+- **Phase 3.4: Checkout Dossier & Cash Payment Flow (COMPLETED ✅)**
+  - [x] Neobrutalist checkout modal dossier with customer name & table notes.
+  - [x] Cash tender chips (`Pas`, `50k`, `100k`, `200k`, `+10k`, `+20k`, `+50k`) and live change calculation.
+  - [x] Atomic cash settlement via `OrderService` + stock deduction via `InventoryService`.
+  - [x] Printable transaction receipt dossier modal with thermal printer support.
 - **Phase 3.5: Midtrans Snap Integration & Client-Side Flow**
   - [ ] Midtrans Snap payment method in checkout modal.
   - [ ] Event dispatching and `window.snap.pay(snapToken)` integration.
