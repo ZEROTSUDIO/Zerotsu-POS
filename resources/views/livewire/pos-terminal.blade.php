@@ -804,14 +804,41 @@
                         </div>
                     @else
                         <!-- MIDTRANS SNAP INFO BOX -->
-                        <div class="p-4 bg-[#F4F1FA] border-2 border-[#0A090D] space-y-2 font-mono text-xs text-[#0A090D]">
-                            <div class="flex items-center gap-2 font-bold text-[#7C3AED]">
-                                <span class="w-2 h-2 rounded-full bg-[#7C3AED]"></span>
-                                <span>MIDTRANS SNAP INTEGRATION (PHASE 3.5)</span>
+                        <div class="p-4 bg-[#F4F1FA] border-2 border-[#0A090D] space-y-3 font-mono text-xs text-[#0A090D] shadow-[3px_3px_0_#0A090D]">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2 font-bold text-[#7C3AED]">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-[#7C3AED] animate-pulse"></span>
+                                    <span>MIDTRANS SNAP GATEWAY INTEGRATION</span>
+                                </div>
+                                <span class="badge-lilac !text-[9px] !py-0.5 !px-2">ONLINE SETTLEMENT</span>
                             </div>
-                            <p class="text-[11px] text-[#4B4556]">
-                                Payment will launch a client-side Midtrans Snap popup supporting dynamic QRIS, GoPay, and Virtual Accounts.
+                            
+                            <p class="text-[11px] text-[#4B4556] leading-relaxed">
+                                Transaksi akan membuka pop-up resmi <strong class="text-[#0A090D]">Midtrans Snap</strong> yang mendukung pembayaran instan:
                             </p>
+
+                            <!-- Channel Badges -->
+                            <div class="grid grid-cols-3 gap-2 text-center pt-1">
+                                <div class="p-2 bg-white border border-[#0A090D] shadow-[1.5px_1.5px_0_#0A090D]">
+                                    <div class="font-display text-xs text-[#0A090D]">QRIS</div>
+                                    <div class="text-[9px] text-[#8C849B]">GoPay / Dana / BCA</div>
+                                </div>
+                                <div class="p-2 bg-white border border-[#0A090D] shadow-[1.5px_1.5px_0_#0A090D]">
+                                    <div class="font-display text-xs text-[#0A090D]">VIRTUAL ACC</div>
+                                    <div class="text-[9px] text-[#8C849B]">BCA / BRI / BNI</div>
+                                </div>
+                                <div class="p-2 bg-white border border-[#0A090D] shadow-[1.5px_1.5px_0_#0A090D]">
+                                    <div class="font-display text-xs text-[#0A090D]">E-WALLET</div>
+                                    <div class="text-[9px] text-[#8C849B]">ShopeePay / etc.</div>
+                                </div>
+                            </div>
+
+                            <div class="text-[10px] text-[#7C3AED] flex items-center gap-1.5 pt-1">
+                                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="square" stroke-linejoin="miter" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <span>Status order tersinkronisasi otomatis via Webhook & polling real-time.</span>
+                            </div>
                         </div>
                     @endif
 
@@ -845,10 +872,23 @@
                     @else
                         <button 
                             type="button"
-                            disabled
-                            class="btn-solid !py-2.5 !px-5 text-xs font-mono font-bold opacity-50 cursor-not-allowed shadow-[4px_4px_0_#0A090D]"
+                            wire:click="processMidtransPayment"
+                            wire:loading.attr="disabled"
+                            class="btn-solid !py-2.5 !px-5 text-xs font-mono font-bold !bg-[#7C3AED] hover:!bg-[#5B1AA0] text-white shadow-[4px_4px_0_#0A090D] flex items-center gap-2"
                         >
-                            <span>TRIGGER MIDTRANS SNAP (PHASE 3.5)</span>
+                            <span wire:loading.remove wire:target="processMidtransPayment">
+                                BAYAR VIA MIDTRANS SNAP (QRIS / VA)
+                            </span>
+                            <span wire:loading wire:target="processMidtransPayment" class="flex items-center gap-2">
+                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                MEMPROSES TOKEN MIDTRANS...
+                            </span>
+                            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="square" stroke-linejoin="miter" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                            </svg>
                         </button>
                     @endif
                 </div>

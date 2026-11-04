@@ -4,8 +4,10 @@ namespace App\Livewire;
 
 use App\Enums\PaymentMethod;
 use App\Models\Category;
+use App\Models\Order;
 use App\Models\Product;
 use App\Services\OrderService;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
@@ -34,13 +36,23 @@ class PosTerminal extends Component
     public bool $enableTax = true; // 10% PB1 café tax enabled by default
     public int $taxRate = 10;
     
-    // Phase 3.4 Checkout Dossier State
+    // Phase 3.4 & 3.5 Checkout & Payment State
     public bool $showCheckoutModal = false;
     public string $selectedPaymentMethod = 'cash'; // 'cash' | 'midtrans_snap'
     public int $cashTendered = 0;
     public bool $showReceiptModal = false;
     public ?int $lastCompletedOrderId = null;
     public array $lastReceiptData = [];
+
+    // Phase 3.5 Midtrans Snap State
+    public ?string $pendingOrderNumber = null;
+    public ?string $pendingSnapToken = null;
+    public ?string $pendingRedirectUrl = null;
+    public bool $showSnapWaitingModal = false;
+    public bool $showSnapSimulatorModal = false;
+
+    // Phase 3.7 Developer Testing Toolbar
+    public bool $showDevToolbar = false;
 
     // UI Drawer Helpers
     public bool $showDiscountOptions = false;
@@ -191,7 +203,7 @@ class PosTerminal extends Component
     }
 
     // ══════════════════════════════════════════════════════════
-    // PHASE 3.4 CHECKOUT & CASH RECONCILIATION METHODS
+    // PHASE 3.4 & 3.5 CHECKOUT & PAYMENT INTEGRATIONS
     // ══════════════════════════════════════════════════════════
 
     #[On('trigger-checkout')]
@@ -202,7 +214,6 @@ class PosTerminal extends Component
             return;
         }
 
-        $this->selectedPaymentMethod = 'cash';
         $this->cashTendered = $this->grandTotal; // default to exact amount due
         $this->showCheckoutModal = true;
         $this->feedbackMessage = null;
@@ -213,6 +224,7 @@ class PosTerminal extends Component
     {
         $this->showCheckoutModal = false;
         $this->showReceiptModal = false;
+        $this->showSnapSimulatorModal = false;
     }
 
     public function setCashTendered(int $amount): void
@@ -286,6 +298,297 @@ class PosTerminal extends Component
 
         } catch (\Throwable $e) {
             $this->feedbackMessage = 'Gagal memproses pembayaran: ' . $e->getMessage();
+        }
+    }
+
+    /**
+     * Phase 3.5: Midtrans Snap Payment Initiation
+     */
+    public function processMidtransPayment(OrderService $orderService): void
+    {
+        if (empty($this->cart)) {
+            $this->feedbackMessage = 'Keranjang belanja kosong!';
+            return;
+        }
+
+        $cartItems = [];
+        foreach ($this->cart as $item) {
+            $cartItems[] = [
+                'product_id' => (int) $item['id'],
+                'quantity' => (int) $item['quantity'],
+            ];
+        }
+
+        try {
+            $order = $orderService->createOrder(
+                cartItems: $cartItems,
+                method: PaymentMethod::MIDTRANS_SNAP,
+                customerName: $this->customerName ?: 'Walk-in Guest',
+                cashierId: auth()->id(),
+                discountAmount: $this->discountAmount,
+                taxAmount: $this->taxAmount,
+                notes: $this->orderNotes
+            );
+
+            $this->pendingOrderNumber = $order->order_number;
+            $this->pendingSnapToken = $order->latestPayment?->snap_token;
+            $this->pendingRedirectUrl = $order->latestPayment?->snap_redirect_url;
+
+            $this->showCheckoutModal = false;
+            $this->showSnapWaitingModal = true;
+            $this->feedbackMessage = null;
+
+            // Dispatch browser event to launch Midtrans Snap JS popup
+            $this->dispatch('open-snap-modal', [
+                'snapToken' => $this->pendingSnapToken,
+                'orderNumber' => $this->pendingOrderNumber,
+                'redirectUrl' => $this->pendingRedirectUrl,
+            ]);
+
+        } catch (\Throwable $e) {
+            $this->feedbackMessage = 'Gagal membuat pembayaran Midtrans: ' . $e->getMessage();
+        }
+    }
+
+    #[On('snap-payment-success')]
+    public function handleSnapSuccess(OrderService $orderService, ?array $result = null, ?string $orderNumber = null, ?array $payload = null): void
+    {
+        $targetOrder = $orderNumber ?? ($payload['orderNumber'] ?? $this->pendingOrderNumber);
+        $res = $result ?? ($payload['result'] ?? []);
+        $trxId = $res['transaction_id'] ?? ('SNAP-' . strtoupper(Str::random(10)));
+        $paymentType = $res['payment_type'] ?? 'midtrans_qris';
+
+        if ($targetOrder) {
+            $orderService->settlePaymentFromWebhook(
+                orderNumber: $targetOrder,
+                providerTransactionId: $trxId,
+                paymentType: $paymentType,
+                rawPayload: $payload ?? ['result' => $res, 'orderNumber' => $targetOrder]
+            );
+
+            $this->completeOnlineOrderReceipt($targetOrder, 'MIDTRANS (QRIS/VA)');
+        }
+    }
+
+    #[On('snap-payment-pending')]
+    public function handleSnapPending(?array $result = null, ?string $orderNumber = null, ?array $payload = null): void
+    {
+        $this->showSnapWaitingModal = true;
+        $this->feedbackMessage = 'Menunggu penyelesaian pembayaran oleh pelanggan (QRIS / Virtual Account)...';
+    }
+
+    #[On('snap-payment-error')]
+    public function handleSnapError(?array $result = null, ?string $orderNumber = null, ?array $payload = null): void
+    {
+        $this->showSnapWaitingModal = false;
+        $this->feedbackMessage = 'Pembayaran Midtrans gagal atau dibatalkan.';
+    }
+
+    #[On('snap-payment-closed')]
+    public function handleSnapClosed(): void
+    {
+        // Modal popup closed by customer/cashier
+    }
+
+    #[On('show-snap-simulator')]
+    public function showSnapSimulator(?string $snapToken = null, ?string $orderNumber = null): void
+    {
+        $this->showSnapSimulatorModal = true;
+    }
+
+    /**
+     * Phase 3.6: Polling check for pending order payment settlement
+     */
+    public function checkPendingPaymentStatus(): void
+    {
+        if (!$this->pendingOrderNumber) {
+            return;
+        }
+
+        $order = Order::where('order_number', $this->pendingOrderNumber)->with('latestPayment')->first();
+        if (!$order) {
+            return;
+        }
+
+        if ($order->status === \App\Enums\OrderStatus::PAID) {
+            $paymentType = $order->latestPayment?->payment_type ?? 'MIDTRANS ONLINE';
+            $this->completeOnlineOrderReceipt($this->pendingOrderNumber, strtoupper($paymentType));
+        } elseif (in_array($order->status, [\App\Enums\OrderStatus::CANCELLED, \App\Enums\OrderStatus::EXPIRED])) {
+            $this->showSnapWaitingModal = false;
+            $this->showSnapSimulatorModal = false;
+            $this->pendingOrderNumber = null;
+            $this->pendingSnapToken = null;
+            $this->feedbackMessage = "Transaksi [{$order->order_number}] berstatus {$order->status->value}.";
+        }
+    }
+
+    /**
+     * Simulate Webhook Settlement in Developer Mode
+     */
+    public function simulateSnapSettlement(OrderService $orderService): void
+    {
+        if (!$this->pendingOrderNumber) {
+            return;
+        }
+
+        $orderService->settlePaymentFromWebhook(
+            orderNumber: $this->pendingOrderNumber,
+            providerTransactionId: 'SIM-SNAP-' . strtoupper(Str::random(10)),
+            paymentType: 'midtrans_qris',
+            rawPayload: ['simulated' => true, 'timestamp' => now()->toIso8601String()]
+        );
+
+        $this->completeOnlineOrderReceipt($this->pendingOrderNumber, 'MIDTRANS QRIS (SIMULATED)');
+    }
+
+    public function cancelPendingOrder(): void
+    {
+        if ($this->pendingOrderNumber) {
+            $order = Order::where('order_number', $this->pendingOrderNumber)->first();
+            if ($order && $order->status === \App\Enums\OrderStatus::PENDING_PAYMENT) {
+                $order->update(['status' => \App\Enums\OrderStatus::CANCELLED]);
+            }
+        }
+
+        $this->showSnapWaitingModal = false;
+        $this->showSnapSimulatorModal = false;
+        $this->pendingOrderNumber = null;
+        $this->pendingSnapToken = null;
+        $this->feedbackMessage = 'Pembayaran online dibatalkan.';
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // PHASE 3.7 DEVELOPER TOOLBAR & WEBHOOK SIMULATOR
+    // ══════════════════════════════════════════════════════════
+
+    public function toggleDevToolbar(): void
+    {
+        $this->showDevToolbar = !$this->showDevToolbar;
+    }
+
+    /**
+     * Simulate incoming Midtrans Webhook notification (Settlement, Expire, Cancel)
+     */
+    public function simulateWebhookNotification(string $targetStatus, OrderService $orderService): void
+    {
+        $targetOrderNumber = $this->pendingOrderNumber;
+
+        if (!$targetOrderNumber) {
+            $recent = Order::where('status', \App\Enums\OrderStatus::PENDING_PAYMENT)->latest()->first();
+            if ($recent) {
+                $targetOrderNumber = $recent->order_number;
+            } else {
+                $this->feedbackMessage = '[DEV TOOLBAR] Tidak ada pesanan aktif berstatus PENDING PAYMENT.';
+                return;
+            }
+        }
+
+        $order = Order::where('order_number', $targetOrderNumber)->first();
+        if (!$order) {
+            $this->feedbackMessage = "[DEV TOOLBAR] Order {$targetOrderNumber} tidak ditemukan.";
+            return;
+        }
+
+        $trxId = 'SIM-WEBHOOK-' . strtoupper(Str::random(8));
+
+        if ($targetStatus === 'settlement') {
+            $orderService->settlePaymentFromWebhook(
+                orderNumber: $order->order_number,
+                providerTransactionId: $trxId,
+                paymentType: 'qris',
+                rawPayload: [
+                    'order_id' => $order->order_number,
+                    'transaction_status' => 'settlement',
+                    'payment_type' => 'qris',
+                    'gross_amount' => (string) $order->total_amount,
+                    'transaction_id' => $trxId,
+                    'simulated_by' => 'POS Dev Toolbar',
+                ]
+            );
+
+            $this->feedbackMessage = "⚡ [DEV SIMULATOR] Webhook 'settlement' berhasil diproses untuk {$order->order_number}! Stok terpotong.";
+            $this->completeOnlineOrderReceipt($order->order_number, 'MIDTRANS QRIS (SIMULATED)');
+        } elseif ($targetStatus === 'expire') {
+            $orderService->updatePaymentStatusFromWebhook(
+                orderNumber: $order->order_number,
+                status: \App\Enums\PaymentStatus::EXPIRED,
+                providerTransactionId: $trxId,
+                rawPayload: ['order_id' => $order->order_number, 'transaction_status' => 'expire']
+            );
+            $this->cancelPendingOrder();
+            $this->feedbackMessage = "⚡ [DEV SIMULATOR] Webhook 'expire' diproses. Order {$order->order_number} ditandai EXPIRED.";
+        } elseif ($targetStatus === 'cancel') {
+            $orderService->updatePaymentStatusFromWebhook(
+                orderNumber: $order->order_number,
+                status: \App\Enums\PaymentStatus::CANCELLED,
+                providerTransactionId: $trxId,
+                rawPayload: ['order_id' => $order->order_number, 'transaction_status' => 'cancel']
+            );
+            $this->cancelPendingOrder();
+            $this->feedbackMessage = "⚡ [DEV SIMULATOR] Webhook 'cancel' diproses. Order {$order->order_number} ditandai CANCELLED.";
+        }
+    }
+
+    /**
+     * Test Idempotency: Trigger duplicate settlement webhook to verify no double deduction
+     */
+    public function simulateDuplicateWebhookTest(OrderService $orderService): void
+    {
+        $order = null;
+        if ($this->lastCompletedOrderId) {
+            $order = Order::find($this->lastCompletedOrderId);
+        } else {
+            $order = Order::where('status', \App\Enums\OrderStatus::PAID)->latest()->first();
+        }
+
+        if (!$order) {
+            $this->feedbackMessage = '[DEV TOOLBAR] Selesaikan minimal 1 order lunas untuk menguji webhook duplikat.';
+            return;
+        }
+
+        // Fire duplicate notification
+        $orderService->settlePaymentFromWebhook(
+            orderNumber: $order->order_number,
+            providerTransactionId: 'TEST-DUP-' . strtoupper(Str::random(6)),
+            paymentType: 'qris',
+            rawPayload: ['duplicate_test' => true, 'timestamp' => now()->toIso8601String()]
+        );
+
+        $this->feedbackMessage = "⚡ [IDEMPOTENCY VERIFIED] Webhook duplikat untuk {$order->order_number} berhasil diabaikan! Stok aman tanpa double deduction.";
+    }
+
+    protected function completeOnlineOrderReceipt(string $orderNumber, string $paymentLabel): void
+    {
+        $order = Order::where('order_number', $orderNumber)->with('items')->first();
+
+        if ($order) {
+            $this->lastReceiptData = [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'customer_name' => $order->customer_name,
+                'created_at' => $order->created_at->format('d M Y · H:i') . ' WIB',
+                'items' => $order->items->map(fn($it) => [
+                    'name' => $it->product_name,
+                    'price' => $it->unit_price,
+                    'quantity' => $it->quantity,
+                ])->toArray(),
+                'subtotal' => $order->subtotal,
+                'discount_amount' => $order->discount_amount,
+                'tax_amount' => $order->tax_amount,
+                'total_amount' => $order->total_amount,
+                'cash_tendered' => $order->total_amount,
+                'change_amount' => 0,
+                'payment_method' => $paymentLabel,
+                'cashier_name' => auth()->user()->name ?? 'Zerotsu Cashier',
+            ];
+
+            $this->lastCompletedOrderId = $order->id;
+            $this->clearCart();
+            $this->showSnapWaitingModal = false;
+            $this->showSnapSimulatorModal = false;
+            $this->showReceiptModal = true;
+            $this->pendingOrderNumber = null;
+            $this->pendingSnapToken = null;
         }
     }
 

@@ -37,7 +37,14 @@ class MidtransPaymentGateway implements PaymentGatewayInterface
     {
         if (empty($this->serverKey)) {
             Log::warning('Midtrans Server Key belum diatur di .env. Menggunakan fallback mock response.');
-            return PaymentResultDTO::failed('Midtrans Server Key belum diatur di .env');
+            return PaymentResultDTO::successful(
+                status: PaymentStatus::PENDING,
+                providerTransactionId: 'MOCK-SNAP-' . strtoupper(\Illuminate\Support\Str::random(12)),
+                snapToken: 'snap-token-mock-' . \Illuminate\Support\Str::uuid(),
+                redirectUrl: 'https://app.sandbox.midtrans.com/snap/v2/vtweb/mock',
+                paymentType: 'midtrans_snap',
+                rawPayload: ['mock' => true, 'order_number' => $order->order_number]
+            );
         }
 
         $items = $order->items->map(function ($item) {

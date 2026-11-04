@@ -234,7 +234,7 @@
     <!-- Zerotsudios UI Interactivity Scripts -->
     <script src="{{ asset('js/zerotsudios.js') }}"></script>
 
-    <!-- Global POS Keyboard Hotkey Listeners -->
+    <!-- Global POS Keyboard Hotkey Listeners & Midtrans Snap Dispatcher -->
     <script>
         document.addEventListener('keydown', function(e) {
             // [F2] -> Focus Product Search Input
@@ -256,6 +256,37 @@
             // [Escape] -> Close modals or clear focus
             if (e.key === 'Escape') {
                 Livewire.dispatch('close-modals');
+            }
+        });
+
+        // Listen for Midtrans Snap Trigger from Livewire
+        window.addEventListener('open-snap-modal', function(event) {
+            const data = (event.detail && event.detail[0]) ? event.detail[0] : event.detail;
+            const snapToken = data.snapToken;
+            const orderNumber = data.orderNumber;
+
+            if (window.snap && typeof window.snap.pay === 'function' && snapToken && !snapToken.startsWith('snap-token-mock-')) {
+                window.snap.pay(snapToken, {
+                    onSuccess: function(result) {
+                        Livewire.dispatch('snap-payment-success', { result: result, orderNumber: orderNumber });
+                    },
+                    onPending: function(result) {
+                        Livewire.dispatch('snap-payment-pending', { result: result, orderNumber: orderNumber });
+                    },
+                    onError: function(result) {
+                        Livewire.dispatch('snap-payment-error', { result: result, orderNumber: orderNumber });
+                    },
+                    onClose: function() {
+                        Livewire.dispatch('snap-payment-closed', { orderNumber: orderNumber });
+                    }
+                });
+            } else {
+                // When Midtrans keys are not yet configured or in mock/offline mode:
+                // Show the built-in Neobrutalist Snap Sandbox Simulator
+                Livewire.dispatch('show-snap-simulator', {
+                    snapToken: snapToken,
+                    orderNumber: orderNumber
+                });
             }
         });
     </script>
