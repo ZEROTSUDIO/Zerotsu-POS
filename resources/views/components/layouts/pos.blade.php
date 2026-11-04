@@ -88,6 +88,34 @@
             color: #C06BF0;
             font-weight: 800;
         }
+
+        /* Thermal Receipt Printer CSS (58mm / 80mm) */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #pos-printable-receipt, #pos-printable-receipt * {
+                visibility: visible;
+            }
+            #pos-printable-receipt {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 100% !important;
+                max-width: 80mm !important;
+                margin: 0 auto;
+                padding: 10px;
+                background: white !important;
+                color: black !important;
+                border: none !important;
+                box-shadow: none !important;
+                font-family: 'Space Mono', monospace !important;
+            }
+            @page {
+                size: auto;
+                margin: 0mm;
+            }
+        }
     </style>
 </head>
 <body class="h-full flex flex-col font-body antialiased select-none overflow-hidden">

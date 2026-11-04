@@ -118,7 +118,7 @@ ZerotsuPOS is built to prove real-world software engineering depth beyond simple
 - [x] Build `OrderService` with price snapshotting and idempotency protection against duplicate webhooks.
 - [x] Expose `POST /api/webhooks/midtrans` endpoint with CSRF exemption in `bootstrap/app.php`.
 
-### Phase 3: Interactive Cashier POS Screen (IN PROGRESS 🟡)
+### Phase 3: Interactive Cashier POS Screen (COMPLETED ✅)
 - **Phase 3.1: POS Layout Shell & Cashier HUD (COMPLETED ✅)**
   - [x] POS master layout (`resources/views/components/layouts/pos.blade.php`) with Zerotsudios UI tokens & Snap.js.
   - [x] Cashier HUD strip: Live clock, cashier profile, shift badge, telemetry indicators (`Space Mono`).
@@ -136,17 +136,17 @@ ZerotsuPOS is built to prove real-world software engineering depth beyond simple
   - [x] Cash tender chips (`Pas`, `50k`, `100k`, `200k`, `+10k`, `+20k`, `+50k`) and live change calculation.
   - [x] Atomic cash settlement via `OrderService` + stock deduction via `InventoryService`.
   - [x] Printable transaction receipt dossier modal with thermal printer support.
-- **Phase 3.5: Midtrans Snap Integration & Client-Side Flow**
-  - [ ] Midtrans Snap payment method in checkout modal.
-  - [ ] Event dispatching and `window.snap.pay(snapToken)` integration.
-  - [ ] Callback lifecycle management (`onSuccess`, `onPending`, `onError`, `onClose`).
-- **Phase 3.6: Live Payment Polling & Transaction Receipt Modal**
-  - [ ] Real-time status polling (`wire:poll.2s`) on `PENDING_PAYMENT`.
-  - [ ] Transaction receipt dossier popup with café branding and itemized summary.
-  - [ ] Thermal POS printer stylesheet (`@media print` for 58mm/80mm receipt paper).
-- **Phase 3.7: In-App Webhook Simulator & Developer Testing Toolbar**
-  - [ ] Floating developer toolbar for instant local webhook simulation (Settlement, Expire, Cancel).
-  - [ ] Verification of SHA-512 validation, stock deduction, and duplicate event idempotency.
+- **Phase 3.5: Midtrans Snap Integration & Client-Side Flow (COMPLETED ✅)**
+  - [x] Midtrans Snap payment method in checkout modal.
+  - [x] Event dispatching and `window.snap.pay(snapToken)` integration with graceful sandbox simulator fallback.
+  - [x] Callback lifecycle management (`onSuccess`, `onPending`, `onError`, `onClose`).
+- **Phase 3.6: Live Payment Polling & Transaction Receipt Modal (COMPLETED ✅)**
+  - [x] Real-time status polling (`wire:poll.2000ms="checkPendingPaymentStatus"`) on `PENDING_PAYMENT`.
+  - [x] Transaction receipt dossier popup with café branding, itemized summary, and payment details.
+  - [x] Thermal POS printer stylesheet (`@media print` for 58mm/80mm receipt paper).
+- **Phase 3.7: In-App Webhook Simulator & Developer Testing Toolbar (COMPLETED ✅)**
+  - [x] Floating developer toolbar for instant local webhook simulation (Settlement, Expire, Cancel).
+  - [x] Verification of SHA-512 validation, stock deduction, and duplicate event idempotency.
 
 ### Phase 4: Webhook Tunneling & Real Sandbox Testing
 - [ ] Expose local webhook via ngrok: `ngrok http 80`.

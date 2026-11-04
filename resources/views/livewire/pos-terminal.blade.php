@@ -1044,4 +1044,270 @@
         </div>
     @endif
 
+    <!-- ══════════════════════════════════════════════════════════
+         PHASE 3.5 / 3.6: MIDTRANS SNAP WAITING & POLLING MODAL
+         ══════════════════════════════════════════════════════════ -->
+    @if ($showSnapWaitingModal)
+        <div 
+            wire:poll.2000ms="checkPendingPaymentStatus"
+            class="fixed inset-0 z-50 bg-[#0A090D]/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+        >
+            <div class="w-full max-w-md bg-white border-2 border-[#0A090D] shadow-[8px_8px_0_#0A090D] overflow-hidden flex flex-col">
+                <!-- Title Bar Strip -->
+                <div class="title-bar !py-2.5 !px-4 flex-shrink-0">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-[#7C3AED] animate-ping"></span>
+                        <span>MIDTRANS ONLINE // MENUNGGU PEMBAYARAN</span>
+                    </div>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="p-6 text-center space-y-4">
+                    <!-- Pulsing QR / Scanner Animation -->
+                    <div class="relative w-28 h-28 mx-auto bg-[#F4F1FA] border-2 border-[#0A090D] shadow-[4px_4px_0_#0A090D] flex items-center justify-center overflow-hidden">
+                        <div class="absolute inset-x-0 h-1 bg-[#7C3AED] shadow-[0_0_8px_#7C3AED] animate-bounce"></div>
+                        <svg class="w-16 h-16 text-[#0A090D]" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 3h6v6H3V3zm2 2v2h2V5H5zm8-2h6v6h-6V3zm2 2v2h2V5h-2zM3 13h6v6H3v-6zm2 2v2h2v-2H5zm13-2h3v2h-3v-2zm-5 0h2v3h-2v-3zm2 3h2v3h-2v-3zm2 2h3v2h-3v-2zm-4 1h2v2h-2v-2zm-3-3h2v2h-2v-2zm0-3h2v2h-2v-2zm6-2h2v2h-2v-2z"/>
+                        </svg>
+                    </div>
+
+                    <!-- Telemetry & Status -->
+                    <div>
+                        <div class="font-mono text-xs text-[#8C849B] font-bold uppercase tracking-wider">
+                            ORDER NOMOR:
+                        </div>
+                        <div class="font-display text-xl text-[#0A090D] tracking-wide mt-0.5">
+                            {{ $pendingOrderNumber }}
+                        </div>
+                        <div class="font-display text-3xl text-[#7C3AED] mt-1">
+                            Rp {{ number_format($this->grandTotal, 0, ',', '.') }}
+                        </div>
+                    </div>
+
+                    <!-- Status Indicator Banner -->
+                    <div class="p-3 bg-[#F4F1FA] border border-[#0A090D] font-mono text-xs text-[#4B4556] flex items-center justify-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
+                        <span>Menunggu webhook settlement (Polling 2s)...</span>
+                    </div>
+
+                    @if (config('app.debug'))
+                        <!-- Quick Sandbox Helper -->
+                        <div class="p-2.5 bg-yellow-50 border border-yellow-400 font-mono text-[11px] text-yellow-900 space-y-1.5 text-left">
+                            <div class="font-bold flex items-center gap-1 text-yellow-800">
+                                <span>⚡ DEV SANDBOX SHORTCUT:</span>
+                            </div>
+                            <p class="text-[10px]">
+                                Ingin menguji instan tanpa scan QR fisik di Midtrans?
+                            </p>
+                            <div class="flex gap-2 pt-1">
+                                <button 
+                                    type="button"
+                                    wire:click="simulateSnapSettlement"
+                                    class="px-2.5 py-1 bg-[#7C3AED] text-white font-bold text-[10px] border border-[#0A090D] shadow-[1px_1px_0_#0A090D] hover:bg-[#5B1AA0]"
+                                >
+                                    Simulasikan Sukses (QRIS)
+                                </button>
+                                <button 
+                                    type="button"
+                                    wire:click="showSnapSimulator"
+                                    class="px-2.5 py-1 bg-white text-[#0A090D] font-bold text-[10px] border border-[#0A090D] shadow-[1px_1px_0_#0A090D] hover:bg-[#F4F1FA]"
+                                >
+                                    Buka Simulator
+                                </button>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Footer Action Bar -->
+                <div class="p-3 bg-[#F4F1FA] border-t-2 border-[#0A090D] flex items-center justify-between">
+                    <button 
+                        type="button" 
+                        wire:click="cancelPendingOrder"
+                        class="btn-outline !py-2 !px-4 text-xs font-mono font-bold w-full"
+                    >
+                        [ESC] BATALKAN PESANAN & KEMBALI KE KASIR
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- ══════════════════════════════════════════════════════════
+         PHASE 3.5: MIDTRANS SNAP SANDBOX SIMULATOR MODAL
+         ══════════════════════════════════════════════════════════ -->
+    @if ($showSnapSimulatorModal)
+        <div class="fixed inset-0 z-50 bg-[#0A090D]/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div class="w-full max-w-lg bg-white border-2 border-[#0A090D] shadow-[8px_8px_0_#0A090D] overflow-hidden flex flex-col">
+                <!-- Dark Title Bar Strip -->
+                <div class="title-bar-dark !py-2.5 !px-4 flex-shrink-0 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-[#C06BF0]"></span>
+                        <span class="font-display tracking-wider text-sm">MIDTRANS SANDBOX SIMULATOR // LOCAL DEV</span>
+                    </div>
+                    <span class="badge-lilac !text-[8px] !py-0.5 !px-2">OFFLINE TEST HARNESS</span>
+                </div>
+
+                <!-- Simulator Body -->
+                <div class="p-5 font-mono text-xs text-[#0A090D] space-y-4">
+                    <div class="p-3 bg-[#F4F1FA] border-1.5 border-[#0A090D] space-y-1">
+                        <div class="flex justify-between text-[11px]">
+                            <span class="text-[#8C849B] font-bold">ORDER NUMBER:</span>
+                            <span class="font-bold text-[#0A090D]">{{ $pendingOrderNumber }}</span>
+                        </div>
+                        <div class="flex justify-between text-[11px]">
+                            <span class="text-[#8C849B] font-bold">TOTAL AMOUNT:</span>
+                            <span class="font-display text-base text-[#7C3AED]">
+                                Rp {{ number_format($this->grandTotal, 0, ',', '.') }}
+                            </span>
+                        </div>
+                        <div class="flex justify-between text-[10px] pt-1 border-t border-[#0A090D]/10">
+                            <span class="text-[#8C849B]">MOCK SNAP TOKEN:</span>
+                            <span class="font-mono text-[9px] text-[#4B4556] truncate max-w-[200px]" title="{{ $pendingSnapToken }}">
+                                {{ $pendingSnapToken ?: 'NONE' }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="text-[11px] font-bold text-[#0A090D]">SIMULASIKAN RESPON MIDTRANS CLIENT:</div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <!-- Button: QRIS Settlement -->
+                            <button 
+                                type="button"
+                                wire:click="simulateSnapSettlement"
+                                class="p-3 bg-[#7C3AED] hover:bg-[#5B1AA0] text-white border-2 border-[#0A090D] shadow-[3px_3px_0_#0A090D] text-left transition-transform active:translate-y-0.5"
+                            >
+                                <div class="font-display text-sm">QRIS SETTLEMENT</div>
+                                <div class="text-[9px] text-[#DDD6FE] mt-0.5">Simulasikan scan QR & pelunasan instan</div>
+                            </button>
+
+                            <!-- Button: Virtual Account Settlement -->
+                            <button 
+                                type="button"
+                                wire:click="simulateWebhookNotification('settlement')"
+                                class="p-3 bg-[#0A0812] hover:bg-[#140C24] text-white border-2 border-[#0A090D] shadow-[3px_3px_0_#7C3AED] text-left transition-transform active:translate-y-0.5"
+                            >
+                                <div class="font-display text-sm text-[#C06BF0]">BCA / BRI VA SETTLE</div>
+                                <div class="text-[9px] text-[#DDD6FE] mt-0.5">Simulasikan transfer VA via webhook</div>
+                            </button>
+
+                            <!-- Button: Expired -->
+                            <button 
+                                type="button"
+                                wire:click="simulateWebhookNotification('expire')"
+                                class="p-2.5 bg-white hover:bg-gray-100 text-[#0A090D] border-2 border-[#0A090D] shadow-[2px_2px_0_#0A090D] text-left"
+                            >
+                                <div class="font-display text-xs text-amber-700">EXPIRED BILL</div>
+                                <div class="text-[9px] text-[#8C849B]">Batas waktu bayar habis</div>
+                            </button>
+
+                            <!-- Button: Cancelled -->
+                            <button 
+                                type="button"
+                                wire:click="simulateWebhookNotification('cancel')"
+                                class="p-2.5 bg-white hover:bg-red-50 text-red-600 border-2 border-[#0A090D] shadow-[2px_2px_0_#0A090D] text-left"
+                            >
+                                <div class="font-display text-xs text-red-700">CANCELLED TRANSACTION</div>
+                                <div class="text-[9px] text-[#8C849B]">Pembayaran dibatalkan pelanggan</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="p-3 bg-[#F4F1FA] border-t-2 border-[#0A090D] flex items-center justify-between">
+                    <button 
+                        type="button" 
+                        wire:click="cancelPendingOrder"
+                        class="btn-outline !py-2 !px-4 text-xs font-mono font-bold"
+                    >
+                        BATALKAN TRANSAKSI
+                    </button>
+                    <button 
+                        type="button" 
+                        wire:click="$set('showSnapSimulatorModal', false)"
+                        class="btn-solid !py-2 !px-4 text-xs font-mono font-bold"
+                    >
+                        TUTUP SIMULATOR
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- ══════════════════════════════════════════════════════════
+         PHASE 3.7: IN-APP WEBHOOK SIMULATOR & DEV TESTING TOOLBAR
+         (Active only in APP_DEBUG=true environment)
+         ══════════════════════════════════════════════════════════ -->
+    @if (config('app.debug'))
+        <div class="fixed bottom-0 inset-x-0 z-40 pointer-events-auto">
+            @if ($showDevToolbar)
+                <div class="bg-[#0A0812] border-t-2 border-[#7C3AED] shadow-[0_-4px_16px_rgba(0,0,0,0.5)] p-2.5 sm:px-4 text-white font-mono text-xs animate-in slide-in-from-bottom duration-200">
+                    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+                        <!-- Toolbar Title & Status -->
+                        <div class="flex items-center gap-2.5">
+                            <span class="badge-lilac !text-[9px] !py-0.5 !px-2 font-bold">DEV TOOLBAR</span>
+                            <span class="text-xs font-bold text-[#DDD6FE]">MIDTRANS WEBHOOK SIMULATOR</span>
+                            <span class="text-[#8C849B]">|</span>
+                            <span class="text-[11px] text-gray-300">
+                                ACTIVE ORDER: <strong class="text-[#C06BF0]">{{ $pendingOrderNumber ?? ($lastReceiptData['order_number'] ?? 'NONE') }}</strong>
+                            </span>
+                        </div>
+
+                        <!-- Simulator Action Buttons -->
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button 
+                                type="button" 
+                                wire:click="simulateWebhookNotification('settlement')"
+                                class="px-2.5 py-1 bg-[#7C3AED] hover:bg-[#5B1AA0] text-white text-[10px] font-bold border border-[#DDD6FE] shadow-[2px_2px_0_#0A090D] transition-transform active:translate-y-0.5"
+                                title="Simulasikan notifikasi Webhook status 'settlement' dari Midtrans"
+                            >
+                                ⚡ [SIMULATE SETTLEMENT]
+                            </button>
+
+                            <button 
+                                type="button" 
+                                wire:click="simulateDuplicateWebhookTest"
+                                class="px-2.5 py-1 bg-[#140C24] hover:bg-[#251542] text-[#C06BF0] text-[10px] font-bold border border-[#7C3AED] shadow-[2px_2px_0_#0A090D]"
+                                title="Kirim webhook settlement duplikat untuk verifikasi idempotency & log payment_events"
+                            >
+                                🛡️ [TEST IDEMPOTENCY]
+                            </button>
+
+                            <button 
+                                type="button" 
+                                wire:click="simulateWebhookNotification('expire')"
+                                class="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-yellow-300 text-[10px] font-bold border border-gray-600"
+                                title="Simulasikan notifikasi Webhook 'expire'"
+                            >
+                                [SIMULATE EXPIRE]
+                            </button>
+
+                            <button 
+                                type="button" 
+                                wire:click="toggleDevToolbar"
+                                class="px-2 py-1 bg-transparent hover:bg-white/10 text-gray-400 hover:text-white text-[10px] font-bold ml-2"
+                            >
+                                [HIDE ▲]
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            @else
+                <!-- Floating Mini Toggle Tab -->
+                <div class="flex justify-end p-2 pointer-events-auto">
+                    <button 
+                        type="button" 
+                        wire:click="toggleDevToolbar"
+                        class="bg-[#0A0812] hover:bg-[#7C3AED] text-[#DDD6FE] hover:text-white px-2.5 py-1 border-2 border-[#0A090D] shadow-[2px_2px_0_#0A090D] text-[10px] font-mono font-bold flex items-center gap-1.5 transition-colors"
+                    >
+                        <span class="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
+                        <span>DEV TOOLBAR [▾]</span>
+                    </button>
+                </div>
+            @endif
+        </div>
+    @endif
+
 </div>
