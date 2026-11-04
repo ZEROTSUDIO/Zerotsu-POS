@@ -90,6 +90,8 @@ class MidtransPaymentGateway implements PaymentGatewayInterface
 
         try {
             $response = Http::withBasicAuth($this->serverKey, '')
+                ->timeout(30)
+                ->connectTimeout(15)
                 ->withHeaders([
                     'Accept' => 'application/json',
                     'Content-Type' => 'application/json',
